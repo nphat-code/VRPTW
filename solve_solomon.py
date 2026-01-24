@@ -2,6 +2,55 @@ import math
 import os
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
+import matplotlib.pyplot as plt
+
+def plot_solution(data_rows, routes):
+    plt.figure(figsize=(12, 8))
+    
+    # Plot depot
+    depot_x = data_rows[0]['x']
+    depot_y = data_rows[0]['y']
+    plt.scatter(depot_x, depot_y, c='red', marker='s', s=100, label='Depot', zorder=10)
+    
+    # Plot customers
+    cust_x = [d['x'] for d in data_rows[1:]]
+    cust_y = [d['y'] for d in data_rows[1:]]
+    plt.scatter(cust_x, cust_y, c='blue', s=30, label='Khách hàng', zorder=5)
+    
+    # Colors for routes
+    cmap = plt.get_cmap('tab10')
+    
+    for i, route in enumerate(routes):
+        color = cmap(i % 10)
+        
+        # Get coordinates for the route
+        route_x = [data_rows[node]['x'] for node in route]
+        route_y = [data_rows[node]['y'] for node in route]
+        
+        # Plot lines
+        plt.plot(route_x, route_y, c=color, linewidth=2, label=f'Xe {i+1}', alpha=0.7)
+        
+        # Add arrows direction
+        for j in range(len(route)-1):
+            p1 = (data_rows[route[j]]['x'], data_rows[route[j]]['y'])
+            p2 = (data_rows[route[j+1]]['x'], data_rows[route[j+1]]['y'])
+            
+            # Simple midpoint for arrow
+            mid_x = (p1[0] + p2[0]) / 2
+            mid_y = (p1[1] + p2[1]) / 2
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+            
+            plt.arrow(mid_x - dx*0.1, mid_y - dy*0.1, dx*0.2, dy*0.2, 
+                      head_width=1.5, head_length=2, fc=color, ec=color)
+
+    plt.title('Minh họa Lộ trình (VRPTW)')
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 def solve_vrptw_25(file_path):
     print(f"Đang giải file: {file_path} bằng OR-Tools")
@@ -157,6 +206,8 @@ def solve_vrptw_25(file_path):
         solution_lines = [f"Tổng quãng đường: {solution.ObjectiveValue() / scale_factor:.2f}\n"]
         
         vehicle_count = 0
+        all_routes = []
+        
         for vehicle_id in range(data['num_vehicles']):
             index = routing.Start(vehicle_id)
             
@@ -172,6 +223,7 @@ def solve_vrptw_25(file_path):
                 index = solution.Value(routing.NextVar(index))
                 
             route.append(manager.IndexToNode(index)) # End node
+            all_routes.append(route)
             
             route_str = f"Xe {vehicle_count}: {' -> '.join(map(str, route))}"
             print(route_str)
@@ -179,6 +231,9 @@ def solve_vrptw_25(file_path):
             
         with open('solution.txt', 'w', encoding='utf-8') as f_out:
             f_out.writelines(solution_lines)
+            
+        # Vẽ biểu đồ
+        plot_solution(data_rows, all_routes)
     else:
         print("Không tìm thấy lời giải.")
 
