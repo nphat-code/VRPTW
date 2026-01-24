@@ -4,7 +4,7 @@ from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 import matplotlib.pyplot as plt
 
-def plot_solution(data_rows, routes):
+def plot_solution(data_rows, routes, save_path=None):
     plt.figure(figsize=(12, 8))
     
     # Plot depot
@@ -59,6 +59,11 @@ def plot_solution(data_rows, routes):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path)
+        print(f"Đã lưu hình ảnh lộ trình tại: {save_path}")
+        
     plt.show()
 
 def solve_vrptw_25(file_path):
@@ -241,8 +246,11 @@ def solve_vrptw_25(file_path):
         with open('solution.txt', 'w', encoding='utf-8') as f_out:
             f_out.writelines(solution_lines)
             
-        # Vẽ biểu đồ
-        plot_solution(data_rows, all_routes)
+            
+        # Vẽ biểu đồ và lưu
+        if not os.path.exists('route_images'):
+            os.makedirs('route_images')
+        plot_solution(data_rows, all_routes, 'route_images/solution_25.png')
     else:
         print("Không tìm thấy lời giải.")
 
