@@ -247,9 +247,14 @@ def solve_vrptw_100(file_path):
         # Vẽ biểu đồ và lưu
         if not os.path.exists('route_images'):
             os.makedirs('route_images')
-        plot_solution(data_rows, all_routes, 'route_images/solution_100.png')
+            
+        # Lấy tên file input (bỏ đuôi .txt) để đặt tên file ảnh
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
+        image_save_path = f'route_images/solution_100_{base_name}.png'
+        
+        plot_solution(data_rows, all_routes, image_save_path)
     else:
         print("Không tìm thấy lời giải.")
 
 if __name__ == "__main__":
-    solve_vrptw_100('solomon-100/C201.txt')
+    solve_vrptw_100('solomon-100/C101.txt')
