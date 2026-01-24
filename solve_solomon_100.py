@@ -180,4 +180,4 @@ def solve_vrptw_100(file_path):
         print("Không tìm thấy lời giải.")
 
 if __name__ == "__main__":
-    solve_vrptw_100('solomon-100/C101.txt')
+    solve_vrptw_100('solomon-100/C201.txt')

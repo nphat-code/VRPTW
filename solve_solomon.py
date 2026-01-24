@@ -1,24 +1,40 @@
-import gurobipy as gp
-from gurobipy import GRB
 import math
+import os
+from ortools.constraint_solver import routing_enums_pb2
+from ortools.constraint_solver import pywrapcp
 
-def solve_vrptw_c101(file_path):
-    print(f"Đang giải file: {file_path}")
+def solve_vrptw_25(file_path):
+    print(f"Đang giải file: {file_path} bằng OR-Tools")
     
     # --- 1. Đọc dữ liệu ---
+    if not os.path.exists(file_path):
+        print(f"Lỗi: Không tìm thấy file {file_path}")
+        return
+
     with open(file_path, 'r') as f:
         lines = f.readlines()
 
+    # Sức tải xe
     sys_capacity = int(lines[4].strip().split()[1])
+    
+    # Số lượng xe (giả định đủ lớn để giải)
+    max_vehicles = 25 
 
-    data = []
+    data_rows = []
     # Dữ liệu khách hàng từ dòng 10 (index 9)
     # Lấy 25 khách hàng + 1 depot (dòng đầu tiên là depot)
     # Tổng cộng 26 dòng
     start_line = 9
-    for i in range(26):
+    n_customers = 25 
+    lines_to_read = n_customers + 1 # 25 khách + 1 depot
+    
+    for i in range(lines_to_read):
+        if start_line + i >= len(lines):
+            break
         parts = lines[start_line + i].strip().split()
-        data.append({
+        if len(parts) < 7:
+            continue
+        data_rows.append({
             'id': int(parts[0]),
             'x': float(parts[1]),
             'y': float(parts[2]),
@@ -27,140 +43,135 @@ def solve_vrptw_c101(file_path):
             'due': float(parts[5]),
             'service': float(parts[6])
         })
-    
-    # --- 2. Xử lý Nodes ---
-    # Node 0: Depot bắt đầu
-    # Node 1..25: Khách hàng
-    # Node 26: Depot kết thúc (bản sao của Node 0)
-    
-    n_customers = 25
-    clients = [i for i in range(1, n_customers + 1)] # 1..25
-    nodes = [i for i in range(n_customers + 2)]      # 0..26
-    
-    # Mapping coordinates & properties
-    coords = {i: (d['x'], d['y']) for i, d in enumerate(data)}
-    coords[26] = coords[0] # Depot end
-    
-    demand = {i: d['demand'] for i, d in enumerate(data)}
-    demand[26] = 0
-    
-    ready = {i: d['ready'] for i, d in enumerate(data)}
-    ready[26] = ready[0]
-    
-    due = {i: d['due'] for i, d in enumerate(data)}
-    due[26] = due[0]
-    
-    service = {i: d['service'] for i, d in enumerate(data)}
-    service[26] = 0
-    
-    def get_dist(i, j):
-        return math.sqrt((coords[i][0]-coords[j][0])**2 + (coords[i][1]-coords[j][1])**2)
-        
-    # --- 3. Tạo Cung (Arcs) ---
-    arcs = []
-    # Từ Depot Start -> Khách hàng
-    for j in clients:
-        arcs.append((0, j))
-        
-    # Giữa các Khách hàng
-    for i in clients:
-        for j in clients:
-            if i != j:
-                arcs.append((i, j))
-                
-    # Từ Khách hàng -> Depot End
-    for i in clients:
-        arcs.append((i, 26))
-        
-    dist = {(i, j): get_dist(i, j) for i, j in arcs}
-    
-    # --- 4. Mô hình Gurobi ---
-    # Branch and Cut được Gurobi áp dụng tự động (Cuts, Presolve, Heuristics)
-    m = gp.Model("VRPTW_C101_Corrected")
-    
-    # Biến quyết định
-    # x[i,j] = 1 nếu đi từ i đến j
-    x = m.addVars(arcs, vtype=GRB.BINARY, name="x")
-    
-    # s[i] = Thời gian bắt đầu phục vụ tại i
-    s = m.addVars(nodes, vtype=GRB.CONTINUOUS, name="s")
-    for i in nodes:
-        s[i].LB = ready[i]
-        s[i].UB = due[i]
-    
-    # q[i] = Tải trọng tích lũy khi đến i
-    q = m.addVars(nodes, vtype=GRB.CONTINUOUS, name="q")
-    for i in nodes:
-        q[i].LB = 0
-        q[i].UB = sys_capacity
-        
-    # Hàm mục tiêu: Tối thiểu tổng quãng đường
-    m.setObjective(gp.quicksum(dist[i,j] * x[i,j] for i,j in arcs), GRB.MINIMIZE)
-    
-    # --- 5. Ràng buộc ---
-    
-    # 5.1 Mỗi khách hàng được thăm đúng 1 lần
-    for i in clients:
-        # Tổng dòng vào i = 1
-        m.addConstr(gp.quicksum(x[j, i] for j in nodes if (j, i) in arcs) == 1, name=f"flow_in_{i}")
-        # Tổng dòng ra i = 1
-        m.addConstr(gp.quicksum(x[i, j] for j in nodes if (i, j) in arcs) == 1, name=f"flow_out_{i}")
 
-    # 5.2 Ràng buộc Thời gian (Time Windows)
-    # Nếu đi từ i -> j, thì s[i] + service[i] + dist[i,j] <= s[j]
-    # Sử dụng Big-M formulation
-    M_time = max(due.values()) + 1000 # Đủ lớn
-    for i, j in arcs:
-        m.addConstr(s[i] + service[i] + dist[i,j] <= s[j] + M_time * (1 - x[i, j]), name=f"time_{i}_{j}")
-        
-    # 5.3 Ràng buộc Tải trọng (Capacity)
-    # Nếu đi từ i -> j, thì q[i] + demand[j] <= q[j]
-    # q[i] ở đây hiểu là tải trọng ĐÃ CÓ trên xe khi đến i (accumulated load)
-    # Lưu ý: Demand tại Depot (0 và 26) là 0.
-    # q[0] = 0.
-    M_cap = sys_capacity + 100
-    m.addConstr(q[0] == 0, name="depot_load_start")
+    if len(data_rows) < lines_to_read:
+        print(f"Cảnh báo: Chỉ đọc được {len(data_rows)} dòng dữ liệu.")
     
-    for i, j in arcs:
-        m.addConstr(q[i] + demand[j] <= q[j] + M_cap * (1 - x[i, j]), name=f"cap_{i}_{j}")
-        
-    # Đảm bảo q[i] >= demand[i] cho các khách hàng (thực ra đã được cover bởi q[0]=0 và dòng trên)
-    for i in clients:
-        m.addConstr(q[i] >= demand[i], name=f"min_load_{i}")
+    # Chuẩn bị dữ liệu cho OR-Tools
+    # Depot là phần tử đầu tiên (index 0)
+    
+    # Ma trận khoảng cách & Thời gian (Scaling x100)
+    scale_factor = 100
+    cnt = len(data_rows)
+    dist_matrix = [[0] * cnt for _ in range(cnt)]
+    time_matrix = [[0] * cnt for _ in range(cnt)]
 
-    # --- 6. Tối ưu hóa ---
-    m.Params.TimeLimit = 60 # Giới hạn thời gian 60s
-    m.optimize()
+    for i in range(cnt):
+        for j in range(cnt):
+            d = math.sqrt((data_rows[i]['x'] - data_rows[j]['x'])**2 + 
+                          (data_rows[i]['y'] - data_rows[j]['y'])**2)
+            # Scale và chuyển về int
+            dist_int = int(round(d * scale_factor))
+            service_int = int(round(data_rows[i]['service'] * scale_factor))
+            
+            dist_matrix[i][j] = dist_int
+            time_matrix[i][j] = dist_int + service_int
+
+    data = {}
+    data['time_matrix'] = time_matrix
+    data['dist_matrix'] = dist_matrix
+    data['time_windows'] = [(int(d['ready'] * scale_factor), int(d['due'] * scale_factor)) for d in data_rows]
+    data['demands'] = [int(d['demand']) for d in data_rows]
+    data['vehicle_capacities'] = [sys_capacity] * max_vehicles
+    data['num_vehicles'] = max_vehicles
+    data['depot'] = 0
+
+    # --- 2. Khởi tạo Routing Model ---
+    manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),
+                                           data['num_vehicles'], data['depot'])
+    routing = pywrapcp.RoutingModel(manager)
+
+    # --- 3. Đăng ký Transit Callback ---
     
-    if m.status == GRB.OPTIMAL:
+    # 3.1 Khoảng cách (cho Hàm mục tiêu)
+    def distance_callback(from_index, to_index):
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['dist_matrix'][from_node][to_node]
+
+    transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+    
+    # --- 4. Dimensions ---
+    
+    # 4.1 Capacity
+    def demand_callback(from_index):
+        from_node = manager.IndexToNode(from_index)
+        return data['demands'][from_node]
+
+    demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
+    routing.AddDimensionWithVehicleCapacity(
+        demand_callback_index,
+        0,  
+        data['vehicle_capacities'], 
+        True, 
+        'Capacity')
+
+    # 4.2 Time Window
+    def time_callback(from_index, to_index):
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['time_matrix'][from_node][to_node]
+
+    time_callback_index = routing.RegisterTransitCallback(time_callback)
+    
+    # Max time horizon
+    max_time = 100000 * scale_factor
+    
+    routing.AddDimension(
+        time_callback_index,
+        max_time, 
+        max_time,  
+        False,  
+        'Time')
+    
+    time_dimension = routing.GetDimensionOrDie('Time')
+    
+    # Add Time Window constraints
+    for location_idx, time_window in enumerate(data['time_windows']):
+        index = manager.NodeToIndex(location_idx)
+        time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+
+    for i in range(data['num_vehicles']):
+        routing.AddVariableMinimizedByFinalizer(
+            time_dimension.CumulVar(routing.Start(i)))
+        routing.AddVariableMinimizedByFinalizer(
+            time_dimension.CumulVar(routing.End(i)))
+
+    # --- 5. Tối ưu hóa ---
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    search_parameters.time_limit.seconds = 30 # Giây
+
+    print("Đang tìm lời giải...")
+    solution = routing.SolveWithParameters(search_parameters)
+
+    # --- 6. In kết quả ---
+    if solution:
         print(f"\nGIẢI THÀNH CÔNG!")
-        result_str = f"Tổng quãng đường: {m.objVal:.2f}\n"
-        print(result_str.strip())
+        print(f"Tổng quãng đường (Objective): {solution.ObjectiveValue() / scale_factor:.2f}")
         
-        # Truy vết lộ trình
-        x_vals = m.getAttr('x', x)
-        active_arcs = [a for a in arcs if x_vals[a] > 0.5]
+        solution_lines = [f"Tổng quãng đường: {solution.ObjectiveValue() / scale_factor:.2f}\n"]
         
-        adj = {i: j for i, j in active_arcs}
-        
-        # Tìm các xe bắt đầu từ 0
         vehicle_count = 0
-        start_nodes = [j for j in clients if (0, j) in active_arcs]
-        
-        solution_lines = [result_str]
-        
-        for start_node in start_nodes:
+        for vehicle_id in range(data['num_vehicles']):
+            index = routing.Start(vehicle_id)
+            
+            # Kiểm tra xe có dùng không
+            if routing.IsEnd(solution.Value(routing.NextVar(index))):
+                continue
+                
             vehicle_count += 1
-            route = [0]
-            curr = start_node
-            route.append(curr)
-            
-            # Load check
-            load = 0
-            
-            while curr != 26:
-                curr = adj[curr]
-                route.append(curr if curr != 26 else 0) # In ra 0 cho dễ hiểu thay vì 26
+            route = []
+            while not routing.IsEnd(index):
+                node_index = manager.IndexToNode(index)
+                route.append(node_index)
+                index = solution.Value(routing.NextVar(index))
+                
+            route.append(manager.IndexToNode(index)) # End node
             
             route_str = f"Xe {vehicle_count}: {' -> '.join(map(str, route))}"
             print(route_str)
@@ -168,14 +179,8 @@ def solve_vrptw_c101(file_path):
             
         with open('solution.txt', 'w', encoding='utf-8') as f_out:
             f_out.writelines(solution_lines)
-            
-    elif m.status == GRB.INFEASIBLE:
-        print("Mô hình không khả thi (Infeasible). Đang tìm nguyên nhân...")
-        m.computeIIS()
-        m.write("model.ilp")
-        print("Đã ghi file model.ilp chứa các ràng buộc mâu thuẫn.")
     else:
-        print(f"Không tìm thấy lời giải tối ưu. Status: {m.status}")
+        print("Không tìm thấy lời giải.")
 
 if __name__ == "__main__":
-    solve_vrptw_c101('C101.txt')
+    solve_vrptw_25('C101.txt')
