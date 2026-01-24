@@ -11,11 +11,20 @@ def plot_solution(data_rows, routes):
     depot_x = data_rows[0]['x']
     depot_y = data_rows[0]['y']
     plt.scatter(depot_x, depot_y, c='red', marker='s', s=100, label='Depot', zorder=10)
+    plt.annotate('Depot', (depot_x, depot_y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9, weight='bold')
     
     # Plot customers
-    cust_x = [d['x'] for d in data_rows[1:]]
-    cust_y = [d['y'] for d in data_rows[1:]]
-    plt.scatter(cust_x, cust_y, c='blue', s=30, label='Khách hàng', zorder=5)
+    # cust_x = [d['x'] for d in data_rows[1:]]
+    # cust_y = [d['y'] for d in data_rows[1:]]
+    # plt.scatter(cust_x, cust_y, c='blue', s=30, label='Khách hàng', zorder=5)
+    
+    # Annotate customer IDs
+    for d in data_rows[1:]:
+         plt.scatter(d['x'], d['y'], c='blue', s=30, zorder=5)
+         plt.annotate(str(d['id']), (d['x'], d['y']), textcoords="offset points", xytext=(0,5), ha='center', fontsize=8)
+    
+    # Create a dummy scatter for legend
+    plt.scatter([], [], c='blue', s=30, label='Khách hàng')
     
     # Colors for routes
     cmap = plt.get_cmap('tab10')
