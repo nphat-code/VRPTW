@@ -259,4 +259,4 @@ def solve_vrptw_50(file_path):
         print("Không tìm thấy lời giải.")
 
 if __name__ == "__main__":
-    solve_vrptw_50('solomon-50/RC201.txt')
+    solve_vrptw_50('solomon-50/C101.txt')
