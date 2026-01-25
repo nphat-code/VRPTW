@@ -119,27 +119,64 @@ def solve_vrptw_branch_and_cut(data, capacity):
         print("Không tìm thấy lời giải trong thời gian quy định.")
         return None, None
 
-def plot_routes(data, routes, total_dist):
-    if not routes: return
+def plot_solution(data_rows, routes, total_dist=None, save_path=None):
     plt.figure(figsize=(12, 8))
     
-    # Vẽ Depot và Khách hàng
-    plt.scatter(data[0]['x'], data[0]['y'], c='red', marker='s', s=150, label='Depot', zorder=10)
-    for d in data[1:]:
-        plt.scatter(d['x'], d['y'], c='blue', s=40, zorder=5)
-        plt.annotate(str(d['id']), (d['x'], d['y']), xytext=(0, 5), textcoords='offset points', ha='center', fontsize=9)
+    # Plot depot
+    depot_x = data_rows[0]['x']
+    depot_y = data_rows[0]['y']
+    plt.scatter(depot_x, depot_y, c='red', marker='s', s=100, label='Depot', zorder=10)
+    plt.annotate('Depot', (depot_x, depot_y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9, weight='bold')
     
-    # Vẽ lộ trình
-    colors = plt.cm.get_cmap('tab20', len(routes))
-    for idx, r in enumerate(routes):
-        rx = [data[i]['x'] for i in r]
-        ry = [data[i]['y'] for i in r]
-        plt.plot(rx, ry, color=colors(idx), linewidth=2.5, alpha=0.7, label=f'Xe {idx+1}')
+    # Annotate customer IDs
+    for d in data_rows[1:]:
+         plt.scatter(d['x'], d['y'], c='blue', s=30, zorder=5)
+         plt.annotate(str(d['id']), (d['x'], d['y']), textcoords="offset points", xytext=(0,5), ha='center', fontsize=8)
+    
+    # Create a dummy scatter for legend
+    plt.scatter([], [], c='blue', s=30, label='Khách hàng')
+    
+    # Colors for routes
+    cmap = plt.get_cmap('tab10')
+    
+    for i, route in enumerate(routes):
+        color = cmap(i % 10)
+        
+        # Get coordinates for the route
+        route_x = [data_rows[node]['x'] for node in route]
+        route_y = [data_rows[node]['y'] for node in route]
+        
+        # Plot lines
+        plt.plot(route_x, route_y, c=color, linewidth=2, label=f'Xe {i+1}', alpha=0.7)
+        
+        # Add arrows direction
+        for j in range(len(route)-1):
+            p1 = (data_rows[route[j]]['x'], data_rows[route[j]]['y'])
+            p2 = (data_rows[route[j+1]]['x'], data_rows[route[j+1]]['y'])
+            
+            # Simple midpoint for arrow
+            mid_x = (p1[0] + p2[0]) / 2
+            mid_y = (p1[1] + p2[1]) / 2
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+            
+            plt.arrow(mid_x - dx*0.1, mid_y - dy*0.1, dx*0.2, dy*0.2, 
+                      head_width=1.5, head_length=2, fc=color, ec=color)
 
-    # Hiển thị Tổng quãng đường ngay trên tiêu đề ảnh
-    plt.title(f"Kết quả VRPTW - Branch and Cut\nTổng quãng đường: {total_dist:.2f}", fontsize=14, fontweight='bold', color='darkgreen')
-    plt.legend(loc='best', fontsize='small', ncol=2)
-    plt.grid(True, linestyle=':', alpha=0.6)
+    title = 'Minh họa Lộ trình (VRPTW)'
+    if total_dist:
+        title += f" - Tổng quãng đường: {total_dist:.2f}"
+    plt.title(title)
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path)
+        print(f"Đã lưu hình ảnh lộ trình tại: {save_path}")
+        
     plt.show()
 
 if __name__ == "__main__":
@@ -150,6 +187,13 @@ if __name__ == "__main__":
         # Hàm trả về 2 giá trị: routes và total_dist
         routes, total_dist = solve_vrptw_branch_and_cut(data, capacity)
         if routes:
-            plot_routes(data, routes, total_dist)
+            # Tạo thư mục lưu ảnh nễu chưa có
+            if not os.path.exists('route_images'):
+                os.makedirs('route_images')
+            
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            save_path = f'route_images/solution_25_mip_{base_name}.png'
+            
+            plot_solution(data, routes, total_dist, save_path=save_path)
     else:
         print(f"Lỗi: Không tìm thấy file {file_path}")
