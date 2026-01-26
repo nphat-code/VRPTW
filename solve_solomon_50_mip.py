@@ -114,6 +114,7 @@ def solve_vrptw_50(data, capacity):
                             curr = k
                             break
                 routes.append(route)
+                print(f"Xe {len(routes)}: {' -> '.join(map(str, route))}")
         return routes, total_dist
     return None, None
 
