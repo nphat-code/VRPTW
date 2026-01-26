@@ -181,7 +181,7 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
 # --- CHƯƠNG TRÌNH CHÍNH ---
 if __name__ == "__main__":
     FOLDER = "solomon-100"
-    FILE_NAME = "RC101.txt"
+    FILE_NAME = "RC201.txt"
     PATH = os.path.join(FOLDER, FILE_NAME)
     
     print(f"--- Bắt đầu giải bài toán 100 khách hàng: {PATH} ---")

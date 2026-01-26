@@ -183,7 +183,7 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
 if __name__ == "__main__":
     # Cấu hình đường dẫn cho 50 khách hàng
     FOLDER = "solomon-50"
-    FILE_NAME = "C101.txt"
+    FILE_NAME = "RC201.txt"
     PATH = os.path.join(FOLDER, FILE_NAME)
     
     print(f"--- Đang giải {PATH} với 50 khách hàng ---")

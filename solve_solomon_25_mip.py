@@ -180,7 +180,7 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
     plt.show()
 
 if __name__ == "__main__":
-    file_path = "solomon-25/C101.txt"
+    file_path = "solomon-25/RC201.txt"
     data, capacity = read_solomon(file_path, n_customers=25)
     if data:
         print(f"--- Đang giải {file_path} ---")
