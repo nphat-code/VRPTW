@@ -3,7 +3,6 @@ import os
 import matplotlib.pyplot as plt
 from mip import Model, xsum, BINARY, MINIMIZE, ConstrsGenerator, OptimizationStatus
 
-# --- 1. LỚP TẠO NHÁT CẮT (LAZY CONSTRAINTS) ---
 class SubtourElimination(ConstrsGenerator):
     def __init__(self, n):
         self.n = n
@@ -28,19 +27,15 @@ class SubtourElimination(ConstrsGenerator):
                     stack.extend(adj[u])
             
             if len(component) >= 2:
-                # Nhát cắt loại bỏ chu trình con - Rất quan trọng cho 100 khách hàng
                 model.add_constr(xsum(model.vars[f"x_{i}_{j}"] for i in component for j in component if i != j) <= len(component) - 1)
 
-# --- 2. HÀM ĐỌC FILE SOLOMON (100 CUSTOMERS) ---
-def read_solomon_100(file_path, n_customers=100):
+def read_solomon(file_path, n_customers=25):
     if not os.path.exists(file_path):
         return None, None
     with open(file_path, 'r') as f:
         lines = f.readlines()
-    
     capacity = int(lines[4].strip().split()[1])
     data = []
-    # Đọc Depot + 100 dòng khách hàng
     for i in range(9, 9 + n_customers + 1):
         if i >= len(lines): break
         p = lines[i].strip().split()
@@ -51,31 +46,32 @@ def read_solomon_100(file_path, n_customers=100):
         })
     return data, capacity
 
-# --- 3. THUẬT TOÁN BRANCH AND CUT (OPTIMIZED) ---
-def solve_vrptw_100(data, capacity):
+def solve_vrptw_branch_and_cut(data, capacity):
     n = len(data)
-    model = Model(solver_name="CBC")
+    # DÒNG QUAN TRỌNG: Khởi tạo mô hình
+    model = Model(solver_name="CBC") 
     
-    # Tính ma trận khoảng cách Euclidean
+    # Tính ma trận khoảng cách
     dist = [[math.sqrt((data[i]['x']-data[j]['x'])**2 + (data[i]['y']-data[j]['y'])**2) for j in range(n)] for i in range(n)]
 
-    # Biến quyết định
+    # 1. Biến quyết định
     x = [[model.add_var(var_type=BINARY, name=f"x_{i}_{j}") for j in range(n)] for i in range(n)]
     t = [model.add_var(name=f"t_{i}") for i in range(n)]
     u = [model.add_var(name=f"u_{i}") for i in range(n)]
 
+    # 2. Hàm mục tiêu
     model.objective = xsum(dist[i][j] * x[i][j] for i in range(n) for j in range(n) if i != j)
     model.sense = MINIMIZE
 
-    # Ràng buộc luồng (Degree constraints)
+    # 3. Ràng buộc luồng (Flow)
     for i in range(1, n):
         model.add_constr(xsum(x[i][j] for j in range(n) if i != j) == 1)
         model.add_constr(xsum(x[j][i] for j in range(n) if i != j) == 1)
     
-    model.add_constr(xsum(x[0][j] for j in range(1, n)) <= 25) 
+    model.add_constr(xsum(x[0][j] for j in range(1, n)) <= 25)
     model.add_constr(xsum(x[0][j] for j in range(1, n)) == xsum(x[j][0] for j in range(1, n)))
 
-    # Ràng buộc MTZ cải tiến cho Time Windows & Capacity
+    # 4. Ràng buộc Khung thời gian và Sức tải (MTZ)
     M = 1e5
     for i in range(n):
         for j in range(1, n):
@@ -89,16 +85,20 @@ def solve_vrptw_100(data, capacity):
         model.add_constr(u[i] >= data[i]['demand'])
         model.add_constr(u[i] <= capacity)
 
-    # Kích hoạt tạo nhát cắt tự động (Lazy Constraints)
+    # 5. Kích hoạt Lazy Constraints
     model.constrs_generator = SubtourElimination(n)
     
-    # Cài đặt giới hạn (100 khách hàng cần kiên nhẫn hơn)
-    model.max_gap = 0.10 # Cho phép sai số 10% để nhanh có kết quả
-    status = model.optimize(max_seconds=300) # Giới hạn 5 phút
+    # 6. Giải toán
+    model.max_gap = 0.05
+    status = model.optimize()
 
+    # --- HẬU XỬ LÝ KẾT QUẢ ---
     if status == OptimizationStatus.OPTIMAL or status == OptimizationStatus.FEASIBLE:
+        # Lấy tổng quãng đường
         total_dist = model.objective_value
-        print(f"\n[HOÀN THÀNH] TỔNG QUÃNG ĐƯỜNG: {total_dist:.2f}")
+        print("\n" + "="*40)
+        print(f"THÀNH CÔNG! TỔNG QUÃNG ĐƯỜNG: {total_dist:.2f}")
+        print("="*40)
         
         routes = []
         for j in range(1, n):
@@ -113,10 +113,12 @@ def solve_vrptw_100(data, capacity):
                             break
                 routes.append(route)
                 print(f"Xe {len(routes)}: {' -> '.join(map(str, route))}")
+        
         return routes, total_dist
-    return None, None
+    else:
+        print("Không tìm thấy lời giải trong thời gian quy định.")
+        return None, None
 
-# --- 4. VẼ BIỂU ĐỒ KẾT QUẢ ---
 def plot_solution(data_rows, routes, total_dist=None, save_path=None):
     plt.figure(figsize=(12, 8))
     
@@ -129,7 +131,6 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
     # Annotate customer IDs
     for d in data_rows[1:]:
          plt.scatter(d['x'], d['y'], c='blue', s=30, zorder=5)
-         # Dù 100 điểm có thể rối, nhưng để "giống cách vẽ của file kia", ta vẫn vẽ
          plt.annotate(str(d['id']), (d['x'], d['y']), textcoords="offset points", xytext=(0,5), ha='center', fontsize=8)
     
     # Create a dummy scatter for legend
@@ -178,24 +179,19 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
         
     plt.show()
 
-# --- CHƯƠNG TRÌNH CHÍNH ---
 if __name__ == "__main__":
-    FOLDER = "solomon-100"
-    FILE_NAME = "RC201.txt"
-    PATH = os.path.join(FOLDER, FILE_NAME)
-    
-    print(f"--- Bắt đầu giải bài toán 100 khách hàng: {PATH} ---")
-    data, cap = read_solomon_100(PATH, n_customers=100)
-    
+    file_path = "solomon-25/C101.txt"
+    data, capacity = read_solomon(file_path, n_customers=25)
     if data:
-        routes, total_dist = solve_vrptw_100(data, cap)
+        print(f"--- Đang giải {file_path} ---")
+        routes, total_dist = solve_vrptw_branch_and_cut(data, capacity)
         if routes:
             if not os.path.exists('route_images'):
                 os.makedirs('route_images')
-            base_name = os.path.splitext(os.path.basename(PATH))[0]
-            save_path = f'route_images/solution_100_mip_{base_name}.png'
+            
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            save_path = f'route_images/solution_25_{base_name}.png'
+            
             plot_solution(data, routes, total_dist, save_path=save_path)
-        else:
-            print("Không tìm thấy lời giải khả thi trong thời gian giới hạn.")
     else:
-        print(f"Lỗi: Không tìm thấy file {PATH}. Hãy kiểm tra thư mục 'solomon-100'.")
+        print(f"Lỗi: Không tìm thấy file {file_path}")
