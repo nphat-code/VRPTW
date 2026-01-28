@@ -93,8 +93,8 @@ def solve_vrptw_50(data, capacity):
     model.constrs_generator = SubtourElimination(n)
     
     # Cài đặt giới hạn thời gian
-    model.max_gap = 0.05 # Chấp nhận sai số 5%
-    status = model.optimize(max_seconds=120)
+    model.max_gap = 0
+    status = model.optimize()
 
     if status == OptimizationStatus.OPTIMAL or status == OptimizationStatus.FEASIBLE:
         total_dist = model.objective_value
@@ -180,7 +180,7 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
 # --- CHƯƠNG TRÌNH CHÍNH ---
 if __name__ == "__main__":
     FOLDER = "solomon-50"
-    FILE_NAME = "RC201.txt"
+    FILE_NAME = "RC101.txt"
     PATH = os.path.join(FOLDER, FILE_NAME)
     
     print(f"--- Đang giải {PATH} với 50 khách hàng ---")

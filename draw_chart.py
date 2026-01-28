@@ -5,8 +5,8 @@ import numpy as np
 # Thay thế các con số dưới đây bằng kết quả thực tế từ máy của bạn
 data_results = {
     'Quy mô': ['25 KH', '50 KH', '100 KH'],
-    'Thời gian (s)': [0.85, 15.2, 120.0],  # Giây
-    'Quãng đường (km)': [191.3, 362.4, 828.9], # km
+    'Thời gian (s)': [0.21, 2.98, 20.25],
+    'Quãng đường (km)': [191.81, 362.25, 828.94],
     'Số lượng xe': [3, 5, 10]
 }
 

@@ -91,10 +91,7 @@ def solve_vrptw_100(data, capacity):
 
     # Kích hoạt tạo nhát cắt tự động (Lazy Constraints)
     model.constrs_generator = SubtourElimination(n)
-    
-    # Cài đặt giới hạn
-    model.max_gap = 0.10 # Cho phép sai số 10%
-    status = model.optimize(max_seconds=300)
+    status = model.optimize()
 
     if status == OptimizationStatus.OPTIMAL or status == OptimizationStatus.FEASIBLE:
         total_dist = model.objective_value
@@ -181,7 +178,7 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
 # --- CHƯƠNG TRÌNH CHÍNH ---
 if __name__ == "__main__":
     FOLDER = "solomon-100"
-    FILE_NAME = "RC101.txt"
+    FILE_NAME = "R201.txt"
     PATH = os.path.join(FOLDER, FILE_NAME)
     
     print(f"--- Bắt đầu giải bài toán 100 khách hàng: {PATH} ---")
