@@ -91,7 +91,7 @@ def solve_vrptw_100(data, capacity):
 
     # Kích hoạt tạo nhát cắt tự động (Lazy Constraints)
     model.constrs_generator = SubtourElimination(n)
-    status = model.optimize()
+    status = model.optimize(max_seconds=50000)
 
     if status == OptimizationStatus.OPTIMAL or status == OptimizationStatus.FEASIBLE:
         total_dist = model.objective_value

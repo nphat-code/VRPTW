@@ -87,9 +87,6 @@ def solve_vrptw_branch_and_cut(data, capacity):
 
     # 5. Kích hoạt Lazy Constraints
     model.constrs_generator = SubtourElimination(n)
-    
-    # 6. Giải toán
-    model.max_gap = 0
     status = model.optimize()
 
     # --- HẬU XỬ LÝ KẾT QUẢ ---
