@@ -1,5 +1,6 @@
 import math
 import os
+import time
 import matplotlib.pyplot as plt
 from mip import Model, xsum, BINARY, MINIMIZE, ConstrsGenerator, OptimizationStatus
 
@@ -113,7 +114,30 @@ def solve_vrptw_100(data, capacity):
         return routes, total_dist
     return None, None
 
-# --- 4. VẼ BIỂU ĐỒ KẾT QUẢ ---
+# --- 4. HÀM GHI FILE KẾT QUẢ (MỚI THÊM) ---
+def export_solution(file_path, original_filename, routes, total_dist, duration):
+    """
+    Ghi kết quả ra file text với encoding utf-8 để tránh lỗi font
+    """
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(f"=== KẾT QUẢ GIẢI BÀI TOÁN VRPTW ===\n")
+            f.write(f"Dataset: {original_filename}\n")
+            f.write(f"Thời gian chạy: {duration:.2f} giây\n")
+            f.write(f"Tổng quãng đường: {total_dist:.2f}\n")
+            f.write(f"Số lượng xe sử dụng: {len(routes)}\n")
+            f.write("-" * 40 + "\n")
+            f.write("CHI TIẾT LỘ TRÌNH:\n")
+            
+            for i, route in enumerate(routes):
+                route_str = ' -> '.join(map(str, route))
+                f.write(f"Xe {i+1}: {route_str}\n")
+        
+        print(f"-> Đã ghi kết quả chi tiết ra file: {file_path}")
+    except Exception as e:
+        print(f"Lỗi khi ghi file: {e}")
+    
+# --- 5. VẼ BIỂU ĐỒ KẾT QUẢ ---
 def plot_solution(data_rows, routes, total_dist=None, save_path=None):
     plt.figure(figsize=(12, 8))
     
@@ -178,21 +202,31 @@ def plot_solution(data_rows, routes, total_dist=None, save_path=None):
 # --- CHƯƠNG TRÌNH CHÍNH ---
 if __name__ == "__main__":
     FOLDER = "solomon-100"
-    FILE_NAME = "R201.txt"
+    FILE_NAME = "R101.txt"
     PATH = os.path.join(FOLDER, FILE_NAME)
     
     print(f"--- Bắt đầu giải bài toán 100 khách hàng: {PATH} ---")
     data, cap = read_solomon_100(PATH, n_customers=100)
     
     if data:
+        # Bắt đầu đo thời gian
+        start_time = time.time()
         routes, total_dist = solve_vrptw_100(data, cap)
+        # Kết thúc đo thời gian
+        end_time = time.time()
+        duration = end_time - start_time
         if routes:
-            if not os.path.exists('route_images'):
-                os.makedirs('route_images')
+            if not os.path.exists('results'):
+                os.makedirs('results')
+            
             base_name = os.path.splitext(os.path.basename(PATH))[0]
-            save_path = f'route_images/solution_100_{base_name}.png'
-            plot_solution(data, routes, total_dist, save_path=save_path)
-        else:
-            print("Không tìm thấy lời giải khả thi trong thời gian giới hạn.")
+            
+            # 1. Lưu ảnh
+            img_save_path = f'results/solution_100_{base_name}.png'
+            plot_solution(data, routes, total_dist, save_path=img_save_path)
+            
+            # 2. Lưu file Text (MỚI)
+            txt_save_path = f'results/solution_100_{base_name}.txt'
+            export_solution(txt_save_path, FILE_NAME, routes, total_dist, duration)
     else:
-        print(f"Lỗi: Không tìm thấy file {PATH}. Hãy kiểm tra thư mục 'solomon-100'.")
+        print(f"Lỗi: Không tìm thấy file {PATH}. Hãy kiểm tra lại thư mục!")
