@@ -114,7 +114,7 @@ def solve_vrptw_100(data, capacity):
         return routes, total_dist
     return None, None
 
-# --- 4. HÀM GHI FILE KẾT QUẢ (MỚI THÊM) ---
+# --- 4. HÀM GHI FILE KẾT QUẢ ---
 def export_solution(file_path, original_filename, routes, total_dist, duration):
     """
     Ghi kết quả ra file text với encoding utf-8 để tránh lỗi font

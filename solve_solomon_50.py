@@ -92,7 +92,7 @@ def solve_vrptw_50(data, capacity):
 
     # Kích hoạt tạo nhát cắt tự động (Lazy Constraints)
     model.constrs_generator = SubtourElimination(n)
-    status = model.optimize(max_seconds=50000)
+    status = model.optimize()
 
     if status == OptimizationStatus.OPTIMAL or status == OptimizationStatus.FEASIBLE:
         total_dist = model.objective_value
@@ -114,7 +114,7 @@ def solve_vrptw_50(data, capacity):
         return routes, total_dist
     return None, None
 
-# --- 4. HÀM GHI FILE KẾT QUẢ (MỚI THÊM) ---
+# --- 4. HÀM GHI FILE KẾT QUẢ  ---
 def export_solution(file_path, original_filename, routes, total_dist, duration):
     """
     Ghi kết quả ra file text với encoding utf-8 để tránh lỗi font
